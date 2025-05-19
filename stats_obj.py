@@ -92,3 +92,13 @@ class Stats():
         self.df['Model Prediction'] = np.dot(self.df[['Offset 1 Day', 'Offset 2 Day']], linear_regression_model)
         fig1 = plt.figure(figsize=(12, 6));
         self.df.iloc[-252:][['Close', 'Model Prediction']].plot()
+
+    def probability(self, threshold):
+        if threshold == None:
+            raise ValueError("No Threshold")
+        if threshold <= 0:
+            probability = 1 - (norm.sf(threshold, loc=self.mean, scale=self.std))
+            print(f"Probability of {self.ticker} losing {threshold}% in one day is {round(probability*100,2):.2f}%")
+        else:
+            probability = norm.sf(threshold, loc=self.mean, scale=self.std)
+            print(f"Probability of {self.ticker} gaining {threshold}% in one day is {round(probability*100,2):.2f}%")
