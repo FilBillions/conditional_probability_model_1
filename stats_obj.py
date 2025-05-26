@@ -17,7 +17,7 @@ class Stats():
         self.df = round(df, 2)
         self.ticker = ticker
         self.close = self.df['Close']
-        self.percent_change = round(np.log(self.close).diff() * 100, 2)
+        self.percent_change = round(np.log(self.close).diff() * 100)
         self.percent_change.dropna(inplace = True)
         self.df['Return'] = self.percent_change
         self.interval = interval
@@ -44,8 +44,11 @@ class Stats():
 
         self.df["Previous Period Return"] = self.df["Return"].shift(1,fill_value=0)
         self.df.dropna(inplace=True)
-        
-    def is_normal(self):
+
+    # - - -  Returns - - - 
+        self.df['Cumulative Return %'] = (np.exp(self.df['Return'] / 100).cumprod() - 1) * 100
+
+    def normal_test(self):
     # descriptive statistics
         print(stats.describe(self.percent_change))
         random_test = stats.kurtosistest(self.random_sample)
@@ -66,6 +69,8 @@ class Stats():
             print('We can reject H0, this is probably not Normally Distributed')
 
     def visual(self):
+        # normal distribution plot
+        
         fig1 = plt.figure(figsize=(12, 6))
         plt.hist(self.percent_change, bins = 50, density = True)
         self.mini, self.maxi = plt.xlim()
@@ -89,6 +94,8 @@ class Stats():
         plt.ylabel('Density')
 
     def probability(self, threshold):
+        # simple normal distribution probability calculation
+
         if threshold == None:
             raise ValueError("No Threshold")
         if threshold <= 0:
@@ -117,18 +124,31 @@ class Stats():
         plt.legend()
         plt.show()
 
-    def conditional_probability(self, p_previous="0% to 1%", p_current="1% to 2%", print_count=False):
+    def conditional_probability(self, print_count=False):
         # - - - Conditional Probability Setup - - -
+
+        # - - Conditional Prbability of a stock moving a certain percentage given the previous period's return
+
+        # -- initialize ranges and labels for binning
         ranges = [-np.inf, -4, -3, -2, -1, 0, 1, 2, 3, 4, np.inf]
         labels = ["<-4%", "-4% to -3%", "-3% to -2%", "-2% to -1%", "-1% to 0%", "0% to 1%", "1% to 2%", "2% to 3%", "3% to 4%", ">4%"]
         self.df["Previous Bin"] = pd.cut(self.df['Previous Period Return'], bins=ranges, labels=labels)
         self.df["Current Bin"] = pd.cut(self.df['Return'], bins=ranges, labels=labels)
+
+        # -- create probability and count dataframes, with labels as both index and columns
         prob_df = pd.DataFrame(index=labels, columns=labels)
         count_df = pd.DataFrame(index=labels, columns=labels)
+
+        # -- calculate counts and probabilities
+        # for each combination of previous and current bins, calculate the count and probability
         for previous_bin in labels:
             for current_bin in labels:
+                # Count how many times the previous bin and current bin occur together
                 count_both = len(self.df[(self.df["Previous Bin"] == previous_bin) & (self.df["Current Bin"] == current_bin)])
+                # Count how many times only the previous bin occurs
                 count_prev = len(self.df[self.df["Previous Bin"] == previous_bin])
+                # Store the counts and probabilities in the respective dataframes
+                # count is used to calculate the probability
                 count_df.loc[previous_bin, current_bin] = count_both
                 probability = count_both / count_prev if count_prev > 0 else 0
                 prob_df.loc[previous_bin, current_bin] = probability
@@ -150,17 +170,42 @@ class Stats():
         # Calculate the Probability of >3%
         prob_df[">3%"] = prob_df["3% to 4%"] + prob_df[">4%"]
         # Calculate the Total Probability by summing coulmns
-        prob_df["Total"] = prob_df['Positive'] + prob_df['Negative']
+        #prob_df["Total"] = prob_df['Positive'] + prob_df['Negative']
         # Calculate the Total Count by summing coulmns
         count_df["Total"] = count_df['Positive'] + count_df['Negative']
         
+        # Top 5 Probabilities
         print('-'*60)
-        print(f'Probability {self.ticker} moves {p_current} if last period moved {p_previous}')
-        print(f"P({p_current} | {p_previous}) = {round(count_df.loc[p_previous, p_current] / count_df.loc[p_previous, 'Total'] * 100, 4)} %")
+        print('Top 5 Probabilities')
+        top_probs = prob_df.stack().nlargest(5)
+        for prob in top_probs.index:
+            print(f'P({prob[1]} | {prob[0]}) = {round(prob_df.loc[prob[0], prob[1]] * 100, 4)}%')
         print('-'*60)
+
+        # Top 5 Worst Probabilities excluding 0
+        print('-'*60)
+        print('Top 5 Worst Probabilities')
+        worst_probs = prob_df.stack().nsmallest(99)
+        worst_count = 0
+        for prob in worst_probs.index:
+            if worst_count == 5:
+                break
+            if prob_df.loc[prob[0], prob[1]] > 0:
+                worst_count += 1
+                print(f'P({prob[1]} | {prob[0]}) = {round(prob_df.loc[prob[0], prob[1]] * 100, 4)}%')
+        
+        # - - - State columns and rows - - -
+        prob_df = pd.concat([prob_df], keys=[f'Current {self.interval} Return'], axis=1)
+        prob_df = pd.concat([prob_df], keys=[f'Previous {self.interval} Return'], axis=0)
+
         # final rounding
         if print_count == True:
             return count_df
         return round(prob_df * 100, 2)
-
+    
+    def run_algo(self):
+        # - - - Run the Algorithm - - -
+        # store the trading actions from our while loop
+        df_actions = pd.DataFrame({'Date':[],'Action':[],'Probability > 0%':[]})
+        
 
