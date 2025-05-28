@@ -7,10 +7,12 @@ from datetime import date, timedelta
 from scipy import stats
 from scipy.stats import norm, spearmanr
 from sklearn.linear_model import LinearRegression
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 sb.set_theme()
 np.set_printoptions(legacy='1.25')
 
-class Stats():
+class Conditional_Probability():
     def __init__(self, ticker, start = str(date.today() - timedelta(59)), end = str(date.today() - timedelta(1)), interval = "1d"):
     # Basic Constructors
         df = yf.download(ticker, start, end, interval = interval, multi_level_index=False)
@@ -46,9 +48,6 @@ class Stats():
 
         self.df["Previous Period Return"] = self.df["Return"].shift(1,fill_value=0)
         self.df.dropna(inplace=True)
-
-    # - - -  Returns - - - 
-        self.df['Cumulative Return %'] = (np.exp(self.df['Return'] / 100).cumprod() - 1) * 100
 
     def normal_test(self):
     # descriptive statistics
@@ -126,7 +125,7 @@ class Stats():
         plt.legend()
         plt.show()
 
-    def conditional_probability(self, print_count=False):
+    def conditional_probability(self, print_table=False, print_count=False):
         # - - - Conditional Probability Setup - - -
 
         # - - - Takes in a single df and returns the conditional probability of a stock moving a certain percentage given the previous period's return
@@ -224,15 +223,16 @@ class Stats():
         prob_df = pd.concat([prob_df], keys=[f'Previous {self.interval} Return'], axis=0)
 
         # final rounding
-        if print_count == True:
-            return count_df
-        return round(prob_df * 100, 2)
+        if print_table == True:
+            if print_count == True:
+                return count_df
+            return round(prob_df * 100, 2)
     
-    def run_algo(self):
+    def run_algo(self, target_probability=.55, target_year=date.today().year - 1, print_table=False):
         # - - - Run the Algorithm - - -
         # - - - Initialize post data and pre data sets - - -
-        post_data = self.df[self.df.index.year >= date.today().year - 1]
-        pre_data = self.df[self.df.index.year < date.today().year - 1]
+        post_data = self.df[self.df.index.year >= target_year]
+        pre_data = self.df[self.df.index.year < target_year]
 
         # import get row and column label function
         def get_row_label(value):
@@ -272,27 +272,6 @@ class Stats():
                 return "7% to 8%"
             elif value >= 8:
                 return ">8%"
-        def get_col_label(value):
-            if value > 8:
-                return ">8%"
-            elif value > 7:
-                return ">7%"
-            elif value > 6:
-                return ">6%"
-            elif value > 5:
-                return ">5%"
-            elif value > 4:
-                return ">4%"
-            elif value > 3:
-                return ">3%"
-            elif value > 2:
-                return ">2%"
-            elif value > 1:
-                return ">1%"
-            elif value > 0:
-                return ">0%"
-            else:
-                return "0%"
         def conditional_probability(df):
             # - - - Conditional Probability Setup - - -
             df = df.copy()
@@ -358,39 +337,138 @@ class Stats():
 
             return prob_df
 
-        # store the trading actions from our while loop
-        df_actions = pd.DataFrame({'Date':[],'Action':[],'Probability > 0%':[]})
+        # Prepare lists to collect actions
+        actions = []
+        dates = []
+        probs = []
 
-        while len(post_data) > 0:
-           # initialze the algo_df with the conditional probability of the pre_data
-            algo_df = conditional_probability(pre_data)
-            # grab first value and date from post_data
-            start_value = post_data['Close'].iloc[0]
-            start_date = post_data.index[0]
-            # get the last return from pre_data
-            last_return = pre_data['Return'].iloc[-1]
-            # get the row label for the last return
+        # Use integer indices instead of slicing DataFrames
+        post_idx = self.df.index.get_loc(post_data.index[0])
+        pre_idx = self.df.index.get_loc(pre_data.index[-1])
+
+        prev_action = None
+        while post_idx < len(self.df):
+            # Use a rolling window or update less frequently for conditional_probability
+            # Updating every step makes the code run longer, by making it update every 2 or 5 steps we improve performance
+            if (post_idx - self.df.index.get_loc(post_data.index[0])) % 5 == 0: # <<<< Change this to 5 for less frequent updates
+                current_pre_data = self.df.iloc[:post_idx]
+                algo_df = conditional_probability(current_pre_data)
+            
+            start_date = self.df.index[post_idx]
+            last_return = self.df['Return'].iloc[post_idx - 1]
             row_label = get_row_label(last_return)
-            # return conditional probability the item will be positive given the action last period
             conditional_prob = algo_df.loc[row_label, 'Positive']
-            # if conditional probability is greater than .50, buy, else sell
-            if conditional_prob > .50:
-                action = 'Buy'
-            else:
-                action = 'Sell'
 
-            action_list = [start_date, action, conditional_prob]
-            df_actions.loc[len(df_actions)] = action_list
+            if conditional_prob > target_probability:
+                if prev_action == 'Buy' or prev_action == 'Hold':
+                    action = 'Hold'
+                else:
+                    action = 'Buy'
+            elif conditional_prob < target_probability:
+                if prev_action == 'Hold' or prev_action == 'Buy':
+                    action = 'Sell'
+                if prev_action == 'No Action' or prev_action == 'Sell':
+                    action = 'No Action'
+            
+            dates.append(start_date)
+            actions.append(action)
+            probs.append(conditional_prob)
+            prev_action = action
 
-            # extract the first row from post_data
-            first_row = post_data.iloc[0]
-            #append the first row to pre_data
-            pre_data = pd.concat([pre_data, first_row.to_frame().T], ignore_index=True)
-            # drop the first row from post_data
-            post_data = post_data.iloc[1:]
+            post_idx += 1
+
+        # Create the actions DataFrame once at the end
+        df_actions = pd.DataFrame({'Date': dates, 'Action': actions, 'Probability > 0%': probs})
+
+        
         print(f"Buys/Sells {df_actions['Action'].value_counts()}")    # print the action taken
-        result_df = self.df.join(df_actions.set_index('Date'), how='left')
-        result_df['Probability > 0%'] = result_df['Probability > 0%'].ffill()
-        result_df['Buy Signal'] = np.where(result_df['Action'] == 'Buy', result_df['Close'], np.nan)
-        result_df['Sell Signal'] = np.where(result_df['Action'] == 'Sell', result_df['Close'], np.nan)
-        return round(result_df, 4)
+        self.df = self.df.join(df_actions.set_index('Date'), how='left')
+        self.df['Probability > 0%'] = self.df['Probability > 0%'].ffill()
+        self.df['Buy Signal'] = np.where(self.df['Action'] == 'Buy', self.df['Close'], np.nan)
+        self.df['Sell Signal'] = np.where(self.df['Action'] == 'Sell', self.df['Close'], np.nan)
+        
+       # remove rows with NaN in action
+        self.df.dropna(subset=['Action'], inplace=True)
+
+        if print_table:
+            return round(self.df, 4)
+
+    def visual(self):
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4], vertical_spacing=0.01, subplot_titles=("Candlesticks with Buy/Sell Signals", "Probability of Next Period Return"))
+        # Candlestick
+        fig.add_trace(go.Candlestick(x=self.df.index, open=self.df['Open'], high=self.df['High'], low=self.df['Low'], close=self.df['Close'], name='Candlestick'))
+        # Buy and Sell Signals
+        fig.add_trace(go.Scatter(x=self.df.index, y=self.df['Buy Signal'], mode='markers', marker=dict(symbol='triangle-up', size=10, color='green'), name='Buy Signal'))
+        fig.add_trace(go.Scatter(x=self.df.index, y=self.df['Sell Signal'], mode='markers', marker=dict(symbol='triangle-down', size=10, color='red'), name='Sell Signal'))
+
+        # Add Conditional Probability
+        fig.add_trace(go.Scatter(x=self.df.index, y=self.df['Probability > 0%'], mode='lines', name='Probability > 0%', line=dict(color='purple', width=2)), row=2, col=1)
+
+        #update layout
+        fig.update_layout(xaxis_rangeslider_visible=False, template='plotly_dark')
+
+        fig.add_hline(y=0.5, line=dict(color='red', dash='dash'), row=2, col=1)
+
+        return fig
+    
+    def backtest(self, print_table=False):
+        initial_investment = 10000
+        cash = initial_investment
+        position = 0
+        portfolio_value = []
+
+        # Calculate Buy/Hold Value
+        share_cost = self.df['Close'].iloc[0]
+        num_shares = initial_investment / share_cost
+        self.df['Buy/Hold Value'] = num_shares * self.df['Close']
+
+        # Iterate through the DataFrame
+        for i in range(0,len(self.df)):
+            action = self.df['Action'].iloc[i]
+            price = self.df['Close'].iloc[i]
+
+            if action == 'Buy' and cash > 0:
+                position = cash/price
+                cash = 0
+            elif action == 'Sell' and position > 0:
+                cash = position * price
+                position = 0
+            elif action == 'Hold':
+                pass
+
+            portfolio_value.append(cash + (position * price))
+        self.df['Portfolio Value'] = portfolio_value
+                #dropping unnecessary columns
+        if 'Volume' in self.df.columns:
+                self.df.drop(columns=['Volume'], inplace = True)
+        if 'Previous Bin' in self.df.columns:
+                self.df.drop(columns=['Previous Bin'], inplace = True)
+        if 'Current Bin' in self.df.columns:
+                self.df.drop(columns=['Current Bin'], inplace = True)
+        
+        if print_table:
+            return self.df
+    
+    def gen_comp(self):
+        labels = pd.to_datetime(self.df.index).strftime('%Y-%m-%d')
+        fig1= plt.figure(figsize=(12, 6))
+        x_values = range(len(self.df))
+
+        # add buy/hold to legend if it doesn't exist
+        if f'{self.ticker} Buy/Hold' not in [line.get_label() for line in plt.gca().get_lines()]:
+            plt.plot(x_values, self.df['Buy/Hold Value'], label=f'{self.ticker} Buy/Hold')
+        # model plot
+        plt.plot(x_values, self.df['Portfolio Value'], label=f'{self.ticker} Model')
+
+        # Set x-axis to date values and make it so they dont spawn too many labels
+        plt.xticks(ticks=x_values, labels=labels, rotation=45)
+        plt.locator_params(axis='x', nbins=10)
+
+        # grid and legend
+        plt.legend(loc=2)
+        plt.grid(True, alpha=.5)
+        # print cumulative return % if not already printed
+        print(f"{self.ticker} Buy/Hold Result:", round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2))
+        print(f"{self.ticker} Model Result:", round(((self.df['Portfolio Value'].iloc[-1] - self.df['Portfolio Value'].iloc[0])/self.df['Portfolio Value'].iloc[0]) * 100, 2))
+        print(f" from {self.df.index[0]} to {self.df.index[-1]}")
+
