@@ -46,6 +46,9 @@ class Conditional_Probability():
         # p is simply your p value for normal calcs
         self.p = norm.pdf(self.overlay,self.mean,self.std)
 
+        # Get the previous close
+        self.df['Prev Close'] = self.df['Close'].shift(1)
+
         self.df["Previous Period Return"] = self.df["Return"].shift(1,fill_value=0)
         self.df.dropna(inplace=True)
 
@@ -347,10 +350,10 @@ class Conditional_Probability():
         pre_idx = self.df.index.get_loc(pre_data.index[-1])
 
         prev_action = None
+        next_action = None  # This will hold the action for the next day
+
         while post_idx < len(self.df):
-            # Use a rolling window or update less frequently for conditional_probability
-            # Updating every step makes the code run longer, by making it update every 2 or 5 steps we improve performance
-            if (post_idx - self.df.index.get_loc(post_data.index[0])) % 5 == 0: # <<<< Change this to 5 for less frequent updates
+            if (post_idx - self.df.index.get_loc(post_data.index[0])) % 5 == 0:
                 current_pre_data = self.df.iloc[:post_idx]
                 algo_df = conditional_probability(current_pre_data)
             
@@ -359,6 +362,7 @@ class Conditional_Probability():
             row_label = get_row_label(last_return)
             conditional_prob = algo_df.loc[row_label, 'Positive']
 
+            # Decide action for the NEXT day
             if conditional_prob > target_probability:
                 if prev_action == 'Buy' or prev_action == 'Hold':
                     action = 'Hold'
@@ -369,13 +373,23 @@ class Conditional_Probability():
                     action = 'Sell'
                 if prev_action == 'No Action' or prev_action == 'Sell':
                     action = 'No Action'
-            
-            dates.append(start_date)
-            actions.append(action)
-            probs.append(conditional_prob)
+            else:
+                action = 'No Action'
+
+            # Only append the action for the previous day (to avoid lookahead bias)
+            if next_action is not None:
+                dates.append(start_date)
+                actions.append(next_action)
+                probs.append(conditional_prob_prev)  # Save the previous day's probability
+
+            # Prepare for next iteration
             prev_action = action
+            next_action = action
+            conditional_prob_prev = conditional_prob
 
             post_idx += 1
+
+# Optionally, append the last action for the last day if needed
 
         # Create the actions DataFrame once at the end
         df_actions = pd.DataFrame({'Date': dates, 'Action': actions, 'Probability > 0%': probs})
@@ -384,8 +398,10 @@ class Conditional_Probability():
         print(f"Buys/Sells {df_actions['Action'].value_counts()}")    # print the action taken
         self.df = self.df.join(df_actions.set_index('Date'), how='left')
         self.df['Probability > 0%'] = self.df['Probability > 0%'].ffill()
-        self.df['Buy Signal'] = np.where(self.df['Action'] == 'Buy', self.df['Close'], np.nan)
-        self.df['Sell Signal'] = np.where(self.df['Action'] == 'Sell', self.df['Close'], np.nan)
+        # Previous close at Buy signals
+        self.df['Buy Signal'] = np.where(self.df['Action'] == 'Buy', self.df['Prev Close'], np.nan)
+        # Previous close at Sell signals
+        self.df['Sell Signal'] = np.where(self.df['Action'] == 'Sell', self.df['Prev Close'], np.nan)
         
        # remove rows with NaN in action
         self.df.dropna(subset=['Action'], inplace=True)
@@ -418,14 +434,14 @@ class Conditional_Probability():
         portfolio_value = []
 
         # Calculate Buy/Hold Value
-        share_cost = self.df['Close'].iloc[0]
+        share_cost = self.df['Prev Close'].iloc[0]
         num_shares = initial_investment / share_cost
         self.df['Buy/Hold Value'] = num_shares * self.df['Close']
 
         # Iterate through the DataFrame
         for i in range(0,len(self.df)):
             action = self.df['Action'].iloc[i]
-            price = self.df['Close'].iloc[i]
+            price = self.df['Prev Close'].iloc[i]
 
             if action == 'Buy' and cash > 0:
                 position = cash/price
@@ -449,7 +465,7 @@ class Conditional_Probability():
         if print_table:
             return self.df
     
-    def gen_comp(self):
+    def comparison(self):
         labels = pd.to_datetime(self.df.index).strftime('%Y-%m-%d')
         fig1= plt.figure(figsize=(12, 6))
         x_values = range(len(self.df))
