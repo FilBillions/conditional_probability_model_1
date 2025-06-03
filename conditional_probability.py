@@ -5,10 +5,9 @@ import yfinance as yf
 import seaborn as sb
 from datetime import date, timedelta
 from scipy import stats
-from scipy.stats import norm, spearmanr
-from sklearn.linear_model import LinearRegression
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from scipy.stats import norm
+from conditional_probability_func import conditional_probability
+from charts import normal
 sb.set_theme()
 np.set_printoptions(legacy='1.25')
 
@@ -52,7 +51,7 @@ class Conditional_Probability():
         self.df["Previous Period Return"] = self.df["Return"].shift(1,fill_value=0)
         self.df.dropna(inplace=True)
 
-    def normal_test(self):
+    def normal(self):
     # descriptive statistics
         print(stats.describe(self.percent_change))
         random_test = stats.kurtosistest(self.random_sample)
@@ -71,35 +70,10 @@ class Conditional_Probability():
             print('We cannot reject H0, this is probably Normally Distributed')
         else:
             print('We can reject H0, this is probably not Normally Distributed')
-
-    def normal_viz(self):
-        # normal distribution plot
-        
-        fig1 = plt.figure(figsize=(12, 6))
-        plt.hist(self.percent_change, bins = 50, density = True)
-        self.mini, self.maxi = plt.xlim()
-        plt.plot(self.overlay, self.p, 'k')
-        plt.axvline(self.mean, color='r', linestyle='dashed')
-        
-        # Standard Deviation Plots
-        plt.axvline(self.mean + self.std, color='g', linestyle='dashed')
-        plt.axvline(self.mean + (2 * self.std), color='b', linestyle='dashed')
-        plt.axvline(self.mean - (2 * self.std), color='b', linestyle='dashed')
-        plt.axvline(self.mean - self.std, color='g', linestyle='dashed')
-        
-        # labels
-        plt.text(self.mean, plt.ylim()[1] * .9, 'mean', color='r', ha='center')
-        plt.text(self.mean + self.std, plt.ylim()[1] * .8, '+1std', color='g', ha='center')
-        plt.text(self.mean + (2 * self.std), plt.ylim()[1] * .7, '+2std', color='b', ha='center')
-        plt.text(self.mean - (2 * self.std), plt.ylim()[1] * .7, '-2std', color='b', ha='center')
-        plt.text(self.mean - self.std, plt.ylim()[1] * .8, '-1std', color='g', ha='center')
-        plt.title(f"Mean: {round(self.mean, 2)}, Std: {round(self.std, 2)}")
-        plt.xlabel('Percent Change')
-        plt.ylabel('Density')
+        return normal(self)
 
     def probability(self, threshold):
         # simple normal distribution probability calculation
-
         if threshold == None:
             raise ValueError("No Threshold")
         if threshold <= 0:
@@ -108,135 +82,18 @@ class Conditional_Probability():
         else:
             probability = norm.sf(threshold, loc=self.mean, scale=self.std)
             print(f"Probability of {self.ticker} gaining {threshold}% in {self.interval} is {round(probability*100,2):.2f}%")
-
-    def print_table(self):
-        return self.df
     
-    def linear_regression(self):
-                # --- Graph setup ---
-        x = self.df[["Previous Period Return"]]
-        y = self.df["Return"]
-        model = LinearRegression().fit(x,y)
-        x_range = np.linspace(x.min(),x.max(),100)
-        y_pred_line = model.predict(x_range)
-        fig1 = plt.figure(figsize=(12, 6))
-        sb.scatterplot(x="Previous Period Return", y="Return", data=self.df, color='Blue', label="Returns")
-        plt.plot(x_range, y_pred_line, color='red', label="Regression Line")
-        plt.xlabel("Previous Period Return (%)")
-        plt.ylabel("Current Return (%)")
-        plt.title("Linear Regression")
-        plt.legend()
-        plt.show()
-
-    def conditional_probability(self, print_table=False, print_count=False):
-        # - - - Conditional Probability Setup - - -
-
-        # - - - Takes in a single df and returns the conditional probability of a stock moving a certain percentage given the previous period's return
-
-        # -- initialize ranges and labels for binning
-        ranges = [-np.inf, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, np.inf]
-        labels = ["<-8%", "-8% to -7%", "-7% to -6%", "-6% to -5%", "-5% to -4%", "-4% to -3%", "-3% to -2%", "-2% to -1%", "-1% to 0%", "0% to 1%", "1% to 2%", "2% to 3%", "3% to 4%", "4% to 5%", "5% to 6%", "6% to 7%", "7% to 8%", ">8%"]
-        # -- create bins for previous and current returns
-        self.df["Previous Bin"] = pd.cut(self.df['Previous Period Return'], bins=ranges, labels=labels)
-        self.df["Current Bin"] = pd.cut(self.df['Return'], bins=ranges, labels=labels)
-
-        # -- create probability and count dataframes, with labels as both index and columns
-        prob_df = pd.DataFrame(index=labels, columns=labels)
-        count_df = pd.DataFrame(index=labels, columns=labels)
-
-        # -- calculate counts and probabilities
-        # for each combination of previous and current bins, calculate the count and probability
-        for previous_bin in labels:
-            for current_bin in labels:
-                # Count how many times the previous bin and current bin occur together
-                count_both = len(self.df[(self.df["Previous Bin"] == previous_bin) & (self.df["Current Bin"] == current_bin)])
-                # Count how many times only the previous bin occurs
-                count_prev = len(self.df[self.df["Previous Bin"] == previous_bin])
-                # Store the counts and probabilities in the respective dataframes
-                # count is used to calculate the probability
-                count_df.loc[previous_bin, current_bin] = count_both
-                probability = count_both / count_prev if count_prev > 0 else 0
-                prob_df.loc[previous_bin, current_bin] = probability
-        count_df = count_df.astype(int)
-        prob_df = prob_df.astype(float)
-
-        #- - - Format Columns - - -
-        negative_return = ["<-8%", "-8% to -7%", "-7% to -6%", "-6% to -5%", "-5% to -4%", "-4% to -3%", "-3% to -2%", "-2% to -1%", "-1% to 0%"]
-        positive_return = ["0% to 1%", "1% to 2%", "2% to 3%", "3% to 4%", "4% to 5%", "5% to 6%", "6% to 7%", "7% to 8%", ">8%"]
-        prob_df["Negative"] = prob_df[negative_return].sum(axis=1)
-        prob_df["Positive"] = prob_df[positive_return].sum(axis=1)
-        count_df["Negative"] = count_df[negative_return].sum(axis=1)
-        count_df["Positive"] = count_df[positive_return].sum(axis=1)
-
-        prob_df[">1%"] = prob_df['1% to 2%'] + prob_df["2% to 3%"] + prob_df["3% to 4%"] + prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">2%"] = prob_df["2% to 3%"] + prob_df["3% to 4%"] + prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">3%"] = prob_df["3% to 4%"] + prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">4%"] = prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">5%"] = prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">6%"] = prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">7%"] = prob_df["7% to 8%"] + prob_df[">8%"]
-        prob_df[">8%"] = prob_df[">8%"]
-        # Calculate the Total Probability by summing coulmns
-        #prob_df["Total"] = prob_df['Positive'] + prob_df['Negative']
-
-        count_df[">1%"] = count_df['1% to 2%'] + count_df["2% to 3%"] + count_df["3% to 4%"] + count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">2%"] = count_df["2% to 3%"] + count_df["3% to 4%"] + count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">3%"] = count_df["3% to 4%"] + count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">4%"] = count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">5%"] = count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">6%"] = count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">7%"] = count_df["7% to 8%"] + count_df[">8%"]
-        count_df[">8%"] = count_df[">8%"]
-
-        # Calculate the Total Count by summing coulmns
-        count_df["Total"] = count_df['Positive'] + count_df['Negative']
-        
-        # Top 5 Probabilities
-        print('-'*60)
-        print('Relevant Probabilities having occurred more than 10 times')
-        print('-'*60)
-        print('Top 5 Probabilities')
-        top_probs = prob_df.stack().nlargest(999999)
-        best_count = 0
-        for prob in top_probs.index:
-            if best_count == 5:
-                break
-            # if the count has happened more than 10 times, print it
-            if count_df.loc[prob[0], prob[1]] > 10:
-                best_count += 1
-                print(f'P({prob[1]} | {prob[0]}) = {round(prob_df.loc[prob[0], prob[1]] * 100, 4)}% --- occurred {count_df.loc[prob[0], prob[1]]} times')
-        print('-'*60)
-
-        # Top 5 Worst Probabilities excluding 0
-        print('-'*60)
-        print('Top 5 Worst Probabilities')
-        worst_probs = prob_df.stack().nsmallest(999999)
-        worst_count = 0
-        for prob in worst_probs.index:
-            if worst_count == 5:
-                break
-            if prob_df.loc[prob[0], prob[1]] > 0:
-                # if the count has happened more than 10 times, print it
-                if count_df.loc[prob[0], prob[1]] > 10:
-                    worst_count += 1
-                    print(f'P({prob[1]} | {prob[0]}) = {round(prob_df.loc[prob[0], prob[1]] * 100, 4)}% --- occurred {count_df.loc[prob[0], prob[1]]} times')
-        
-        # - - - State columns and rows - - -
-        prob_df = pd.concat([prob_df], keys=[f'Current {self.interval} Return'], axis=1)
-        prob_df = pd.concat([prob_df], keys=[f'Previous {self.interval} Return'], axis=0)
-
-        # final rounding
-        if print_table == True:
-            if print_count == True:
-                return count_df
-            return round(prob_df * 100, 2)
-    
-    def run_algo(self, target_probability=.55, target_year=date.today().year - 1, print_table=False):
+    def run_algo(self, target_probability=.55, start_date=date.today().year- 1, end_date=date.today(), print_table=False):
         # - - - Run the Algorithm - - -
         # - - - Initialize post data and pre data sets - - -
-        post_data = self.df[self.df.index.year >= target_year]
-        pre_data = self.df[self.df.index.year < target_year]
-
+        if isinstance(start_date, int):
+            post_data = self.df[self.df.index.year >= start_date]
+            data_cutoff = []
+        else:
+            post_data = self.df[self.df.index >= start_date]
+            if end_date == date.today():
+                end_date = str(date.today())
+            data_cutoff = self.df[self.df.index >= end_date]
         # import get row and column label function
         def get_row_label(value):
             if value < -8:
@@ -275,70 +132,6 @@ class Conditional_Probability():
                 return "7% to 8%"
             elif value >= 8:
                 return ">8%"
-        def conditional_probability(df):
-            # - - - Conditional Probability Setup - - -
-            df = df.copy()
-            # - - - Takes in a single df and returns the conditional probability of a stock moving a certain percentage given the previous period's return
-
-            # -- initialize ranges and labels for binning
-            ranges = [-np.inf, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, np.inf]
-            labels = ["<-8%", "-8% to -7%", "-7% to -6%", "-6% to -5%", "-5% to -4%", "-4% to -3%", "-3% to -2%", "-2% to -1%", "-1% to 0%", "0% to 1%", "1% to 2%", "2% to 3%", "3% to 4%", "4% to 5%", "5% to 6%", "6% to 7%", "7% to 8%", ">8%"]
-            # -- create bins for previous and current returns
-            df["Previous Bin"] = pd.cut(df['Previous Period Return'], bins=ranges, labels=labels)
-            df["Current Bin"] = pd.cut(df['Return'], bins=ranges, labels=labels)
-
-            # -- create probability and count dataframes, with labels as both index and columns
-            prob_df = pd.DataFrame(index=labels, columns=labels)
-            count_df = pd.DataFrame(index=labels, columns=labels)
-
-            # -- calculate counts and probabilities
-            # for each combination of previous and current bins, calculate the count and probability
-            for previous_bin in labels:
-                for current_bin in labels:
-                    # Count how many times the previous bin and current bin occur together
-                    count_both = len(df[(df["Previous Bin"] == previous_bin) & (df["Current Bin"] == current_bin)])
-                    # Count how many times only the previous bin occurs
-                    count_prev = len(df[df["Previous Bin"] == previous_bin])
-                    # Store the counts and probabilities in the respective dataframes
-                    # count is used to calculate the probability
-                    count_df.loc[previous_bin, current_bin] = count_both
-                    probability = count_both / count_prev if count_prev > 0 else 0
-                    prob_df.loc[previous_bin, current_bin] = probability
-            count_df = count_df.astype(int)
-            prob_df = prob_df.astype(float)
-
-            #- - - Format Columns - - -
-            negative_return = ["<-8%", "-8% to -7%", "-7% to -6%", "-6% to -5%", "-5% to -4%", "-4% to -3%", "-3% to -2%", "-2% to -1%", "-1% to 0%"]
-            positive_return = ["0% to 1%", "1% to 2%", "2% to 3%", "3% to 4%", "4% to 5%", "5% to 6%", "6% to 7%", "7% to 8%", ">8%"]
-            prob_df["Negative"] = prob_df[negative_return].sum(axis=1)
-            prob_df["Positive"] = prob_df[positive_return].sum(axis=1)
-            count_df["Negative"] = count_df[negative_return].sum(axis=1)
-            count_df["Positive"] = count_df[positive_return].sum(axis=1)
-
-            prob_df[">1%"] = prob_df['1% to 2%'] + prob_df["2% to 3%"] + prob_df["3% to 4%"] + prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">2%"] = prob_df["2% to 3%"] + prob_df["3% to 4%"] + prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">3%"] = prob_df["3% to 4%"] + prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">4%"] = prob_df["4% to 5%"] + prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">5%"] = prob_df["5% to 6%"] + prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">6%"] = prob_df["6% to 7%"] + prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">7%"] = prob_df["7% to 8%"] + prob_df[">8%"]
-            prob_df[">8%"] = prob_df[">8%"]
-            # Calculate the Total Probability by summing coulmns
-            #prob_df["Total"] = prob_df['Positive'] + prob_df['Negative']
-
-            count_df[">1%"] = count_df['1% to 2%'] + count_df["2% to 3%"] + count_df["3% to 4%"] + count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">2%"] = count_df["2% to 3%"] + count_df["3% to 4%"] + count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">3%"] = count_df["3% to 4%"] + count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">4%"] = count_df["4% to 5%"] + count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">5%"] = count_df["5% to 6%"] + count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">6%"] = count_df["6% to 7%"] + count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">7%"] = count_df["7% to 8%"] + count_df[">8%"]
-            count_df[">8%"] = count_df[">8%"]
-
-            # Calculate the Total Count by summing coulmns
-            count_df["Total"] = count_df['Positive'] + count_df['Negative']
-
-            return prob_df
 
         # Prepare lists to collect actions
         actions = []
@@ -347,15 +140,15 @@ class Conditional_Probability():
 
         # Use integer indices instead of slicing DataFrames
         post_idx = self.df.index.get_loc(post_data.index[0])
-        pre_idx = self.df.index.get_loc(pre_data.index[-1])
 
         prev_action = None
         next_action = None  # This will hold the action for the next day
-
-        while post_idx < len(self.df):
+        action = 'No Action'  # <-- Ensure action is always initialized
+        conditional_prob_prev = None  # Also initialize this
+        while post_idx < (len(self.df) - len(data_cutoff)):
             if (post_idx - self.df.index.get_loc(post_data.index[0])) % 5 == 0:
                 current_pre_data = self.df.iloc[:post_idx]
-                algo_df = conditional_probability(current_pre_data)
+                algo_df = conditional_probability(current_pre_data,print_statement=False)
             
             start_date = self.df.index[post_idx]
             last_return = self.df['Return'].iloc[post_idx - 1]
@@ -389,8 +182,6 @@ class Conditional_Probability():
 
             post_idx += 1
 
-# Optionally, append the last action for the last day if needed
-
         # Create the actions DataFrame once at the end
         df_actions = pd.DataFrame({'Date': dates, 'Action': actions, 'Probability > 0%': probs})
 
@@ -408,24 +199,6 @@ class Conditional_Probability():
 
         if print_table:
             return round(self.df, 4)
-
-    def visual(self):
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4], vertical_spacing=0.01, subplot_titles=("Candlesticks with Buy/Sell Signals", "Probability of Next Period Return"))
-        # Candlestick
-        fig.add_trace(go.Candlestick(x=self.df.index, open=self.df['Open'], high=self.df['High'], low=self.df['Low'], close=self.df['Close'], name='Candlestick'))
-        # Buy and Sell Signals
-        fig.add_trace(go.Scatter(x=self.df.index, y=self.df['Buy Signal'], mode='markers', marker=dict(symbol='triangle-up', size=10, color='green'), name='Buy Signal'))
-        fig.add_trace(go.Scatter(x=self.df.index, y=self.df['Sell Signal'], mode='markers', marker=dict(symbol='triangle-down', size=10, color='red'), name='Sell Signal'))
-
-        # Add Conditional Probability
-        fig.add_trace(go.Scatter(x=self.df.index, y=self.df['Probability > 0%'], mode='lines', name='Probability > 0%', line=dict(color='purple', width=2)), row=2, col=1)
-
-        #update layout
-        fig.update_layout(xaxis_rangeslider_visible=False, template='plotly_dark')
-
-        fig.add_hline(y=0.5, line=dict(color='red', dash='dash'), row=2, col=1)
-
-        return fig
     
     def backtest(self, print_table=False):
         initial_investment = 10000
@@ -462,29 +235,9 @@ class Conditional_Probability():
         if 'Current Bin' in self.df.columns:
                 self.df.drop(columns=['Current Bin'], inplace = True)
         
+        print(f"{self.ticker} Buy/Hold Result: {round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)}%")
+        print(f"{self.ticker} Model Result: {round(((self.df['Portfolio Value'].iloc[-1] - self.df['Portfolio Value'].iloc[0])/self.df['Portfolio Value'].iloc[0]) * 100, 2)}%")
+        print(f" from {self.df.index[0]} to {self.df.index[-1]}")
         if print_table:
             return self.df
-    
-    def comparison(self):
-        labels = pd.to_datetime(self.df.index).strftime('%Y-%m-%d')
-        fig1= plt.figure(figsize=(12, 6))
-        x_values = range(len(self.df))
-
-        # add buy/hold to legend if it doesn't exist
-        if f'{self.ticker} Buy/Hold' not in [line.get_label() for line in plt.gca().get_lines()]:
-            plt.plot(x_values, self.df['Buy/Hold Value'], label=f'{self.ticker} Buy/Hold')
-        # model plot
-        plt.plot(x_values, self.df['Portfolio Value'], label=f'{self.ticker} Model')
-
-        # Set x-axis to date values and make it so they dont spawn too many labels
-        plt.xticks(ticks=x_values, labels=labels, rotation=45)
-        plt.locator_params(axis='x', nbins=10)
-
-        # grid and legend
-        plt.legend(loc=2)
-        plt.grid(True, alpha=.5)
-        # print cumulative return % if not already printed
-        print(f"{self.ticker} Buy/Hold Result:", round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2))
-        print(f"{self.ticker} Model Result:", round(((self.df['Portfolio Value'].iloc[-1] - self.df['Portfolio Value'].iloc[0])/self.df['Portfolio Value'].iloc[0]) * 100, 2))
-        print(f" from {self.df.index[0]} to {self.df.index[-1]}")
 
