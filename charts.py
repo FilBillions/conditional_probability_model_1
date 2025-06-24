@@ -7,6 +7,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 sb.set_theme()
 
+
+
+# make charts generic
+
+
 def comparison(object):
     labels = pd.to_datetime(object.df.index).strftime('%Y-%m-%d')
     fig1= plt.figure(figsize=(12, 6))
@@ -16,7 +21,7 @@ def comparison(object):
     if f'{object.ticker} Buy/Hold' not in [line.get_label() for line in plt.gca().get_lines()]:
         plt.plot(x_values, object.df['Buy/Hold Value'], label=f'{object.ticker} Buy/Hold')
     # model plot
-    plt.plot(x_values, object.df['Portfolio Value'], label=f'{object.ticker} Model')
+    plt.plot(x_values, object.df['Model Value'], label=f'{object.ticker} Model')
 
     # Set x-axis to date values and make it so they dont spawn too many labels
     plt.xticks(ticks=x_values, labels=labels, rotation=45)
