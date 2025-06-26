@@ -4,6 +4,9 @@ import yfinance as yf
 from datetime import date, timedelta
 from scipy import stats
 from scipy.stats import norm
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
 from charts import normal
 from get_row_label import get_row_label
 
@@ -18,10 +21,14 @@ np.set_printoptions(legacy='1.25')
 # The algorithm and backtest methods are generic and support any conditional probability function
 
 class Conditional_Probability():
-    def __init__(self, ticker, start = str(date.today() - timedelta(59)), end = str(date.today() - timedelta(1)), interval = "1d"):
+    def __init__(self, ticker, start = str(date.today() - timedelta(59)), end = str(date.today() - timedelta(1)), interval = "1d", optional_df = None):
     # Basic Constructors
-        df = yf.download(ticker, start, end, interval = interval, multi_level_index=False)
-        self.df = df
+    #Optinal DF is the exact same format as the below yfinance download, this functionality is used so downloaded data is not required every iteration of an algo call
+        if optional_df is not None:
+            self.df = optional_df
+        else:
+            df = yf.download(ticker, start, end, interval = interval, multi_level_index=False)
+            self.df = df
         day_count = np.arange(1, len(self.df) + 1)
         self.df['Day Count'] = day_count
         self.ticker = ticker
@@ -51,11 +58,9 @@ class Conditional_Probability():
         # p is simply your p value for normal calcs
         self.p = norm.pdf(self.overlay,self.mean,self.std)
 
-
 # Calculate Previous Close, used only for avoiding lookahead bias.
 # This Previous Close is not used in calculating any conditional probabilities.
         self.df['Previous Close'] = self.df['Close'].shift(1)
-
 
         self.df.dropna(inplace=True)
 
@@ -91,7 +96,7 @@ class Conditional_Probability():
             probability = norm.sf(threshold, loc=self.mean, scale=self.std)
             print(f"Probability of {self.ticker} gaining {threshold}% in {self.interval} is {round(probability*100,2):.2f}%")
     
-    def run_algo(self, target_probability=.55, start_date=date.today().year- 1, end_date=date.today(), print_table=False):
+    def run_algo(self, target_probability=.55, start_date=date.today().year- 1, end_date=date.today(), step_input=5, print_table=False):
         # - - - Run the Algorithm - - -
         # - - - Initialize post data and pre data sets - - -
         # - - - We only use data from before the specified start date - - -
@@ -118,8 +123,8 @@ class Conditional_Probability():
         conditional_prob_prev = None  # Also initialize this
         # This is the algorithm loop
         while post_idx < (len(self.df) - len(data_cutoff)):
-            if (post_idx - self.df.index.get_loc(post_data.index[0])) % 5 == 0: # Lower Modulo = Longer Runtime, Larger Modulo = Shorter Runtime
-                current_pre_data = self.df.iloc[:post_idx]
+            if (post_idx - self.df.index.get_loc(post_data.index[0])) % step_input == 0: # every x steps, recalculate the conditional probability table using new data
+                current_pre_data = self.df.iloc[:post_idx]                      # this helps with runtime
                 algo_df = conditional_probability(current_pre_data,print_statement=False)
             
             start_date = self.df.index[post_idx]
@@ -157,8 +162,6 @@ class Conditional_Probability():
         # Create the actions DataFrame once at the end
         df_actions = pd.DataFrame({'Date': dates, 'Action': actions, 'Probability > 0%': probs})
 
-        
-        print(f"Buys/Sells {df_actions['Action'].value_counts()}")    # print the action taken
         self.df = self.df.join(df_actions.set_index('Date'), how='left')
         self.df['Probability > 0%'] = self.df['Probability > 0%'].ffill()
         # Previous close at Buy signals
@@ -170,9 +173,10 @@ class Conditional_Probability():
         self.df.dropna(subset=['Action'], inplace=True)
 
         if print_table:
-            return round(self.df, 4)
+            #print(f"Buys/Sells {df_actions['Action'].value_counts()}")
+            return round(self.df,4)
     
-    def backtest(self, print_table=False):
+    def backtest(self, print_statement=True, print_table=False, model_return=False, buy_hold=False):
         initial_investment = 10000
         cash = initial_investment
         position = 0
@@ -208,9 +212,13 @@ class Conditional_Probability():
         if 'Current Bin' in self.df.columns:
                 self.df.drop(columns=['Current Bin'], inplace = True)
         
-        print(f"{self.ticker} Buy/Hold Result: {round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)}%")
-        print(f"{self.ticker} Model Result: {round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)}%")
-        print(f" from {self.df.index[0]} to {self.df.index[-1]}")
+        if print_statement:
+            print(f"{self.ticker} Buy/Hold Result: {round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)}%")
+            print(f"{self.ticker} Model Result: {round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)}%")
+            print(f" from {self.df.index[0]} to {self.df.index[-1]}")
         if print_table:
             return self.df
-
+        if model_return:
+            return round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)
+        if buy_hold:
+            return round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)
