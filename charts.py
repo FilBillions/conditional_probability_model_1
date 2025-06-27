@@ -66,25 +66,29 @@ def visual(object):
     return fig
 
 def normal(object):
+    # work on this some more, i would like the objkect captured to be flexible, i.e return, model return, or etc
     # normal distribution plot
     fig1 = plt.figure(figsize=(12, 6))
-    plt.hist(object.percent_change, bins = 50, density = True)
-    object.mini, object.maxi = plt.xlim()
+    return_modified = object.df['Return'] / 100
+    mean = return_modified.mean()
+    std = return_modified.std()
+    plt.hist(return_modified, bins = 50, density = True)
+    plt.xlim(return_modified.min(), return_modified.max())
     plt.plot(object.overlay, object.p, 'k')
-    plt.axvline(object.mean, color='r', linestyle='dashed')
+    plt.axvline(mean, color='r', linestyle='dashed')
     
     # Standard Deviation Plots
-    plt.axvline(object.mean + object.std, color='g', linestyle='dashed')
-    plt.axvline(object.mean + (2 * object.std), color='b', linestyle='dashed')
-    plt.axvline(object.mean - (2 * object.std), color='b', linestyle='dashed')
-    plt.axvline(object.mean - object.std, color='g', linestyle='dashed')
+    plt.axvline(mean + std, color='g', linestyle='dashed')
+    plt.axvline(mean + (2 * std), color='b', linestyle='dashed')
+    plt.axvline(mean - (2 * std), color='b', linestyle='dashed')
+    plt.axvline(mean - std, color='g', linestyle='dashed')
     
     # labels
-    plt.text(object.mean, plt.ylim()[1] * .9, 'mean', color='r', ha='center')
-    plt.text(object.mean + object.std, plt.ylim()[1] * .8, '+1std', color='g', ha='center')
-    plt.text(object.mean + (2 * object.std), plt.ylim()[1] * .7, '+2std', color='b', ha='center')
-    plt.text(object.mean - (2 * object.std), plt.ylim()[1] * .7, '-2std', color='b', ha='center')
-    plt.text(object.mean - object.std, plt.ylim()[1] * .8, '-1std', color='g', ha='center')
-    plt.title(f"Mean: {round(object.mean, 2)}, Std: {round(object.std, 2)}")
+    plt.text(mean, plt.ylim()[1] * .9, 'mean', color='r', ha='center')
+    plt.text(mean + std, plt.ylim()[1] * .8, '+1std', color='g', ha='center')
+    plt.text(mean + (2 * std), plt.ylim()[1] * .7, '+2std', color='b', ha='center')
+    plt.text(mean - (2 * std), plt.ylim()[1] * .7, '-2std', color='b', ha='center')
+    plt.text(mean - std, plt.ylim()[1] * .8, '-1std', color='g', ha='center')
+    plt.title(f"Mean: {round(mean, 6)}, Std: {round(std, 6)}")
     plt.xlabel('Percent Change')
     plt.ylabel('Density')

@@ -16,6 +16,8 @@ from current_given_previous_func import conditional_probability
 
 np.set_printoptions(legacy='1.25')
 
+# CURRENTLY THIS IS LONG ONLY, NEED TO ADD FUNCTIONALITY THAT CAN GO SHORT ONLY OR LONG/SHORT
+
 # Creates a Conditional Probability Object
 # This object contains the stock data, descriptive statistics, and methods for calculating conditional probabilities.
 # The algorithm and backtest methods are generic and support any conditional probability function
@@ -222,3 +224,25 @@ class Conditional_Probability():
             return round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)
         if buy_hold:
             return round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)
+    
+    def sharpe_ratio(self, return_model=True, return_buy_hold=False):
+        if self.interval == "1d":
+            annualized_factor = 252
+        elif self.interval == "1wk":
+            annualized_factor = 52
+        elif self.interval == "1mo":
+            annualized_factor = 12
+        else:
+            raise ValueError("Unsupported interval for Sharpe Ratio calculation. Use '1d', '1wk', or '1mo'.")
+        model_descriptives = stats.describe(self.df['Model Value'].pct_change().dropna())
+        model_mean = model_descriptives.mean
+        model_std = model_descriptives.variance ** 0.5
+        model_sharpe = model_mean / model_std * (annualized_factor ** 0.5)
+        buy_hold_descriptives = stats.describe(self.df['Buy/Hold Value'].pct_change().dropna())
+        buy_hold_mean = buy_hold_descriptives.mean
+        buy_hold_std = buy_hold_descriptives.variance ** 0.5
+        buy_hold_sharpe = buy_hold_mean / buy_hold_std * (annualized_factor ** 0.5)
+        if return_buy_hold:
+            return round(buy_hold_sharpe, 6)
+        if return_model:
+            return round(model_sharpe, 6)
