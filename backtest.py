@@ -126,7 +126,7 @@ def return_hist(csv_file, backtest=True, buy_hold=False, both=False):
         plt.plot(backtest_overlay, backtest_p, 'k', label='Model PDF')
         plt.axvline(backtest_mean, color='blue', linestyle='dashed', label='Model Mean')
         plt.text(backtest_mean, plt.ylim()[1] * .9, f'{round(backtest_mean, 2)}%', color='black', ha='center')
-        plt.title('Normal Distribution of Model Results')
+        plt.title(f'{ticker}: Normal Distribution of Model Results')
         if buy_hold is False:
             #Standard Deviation Plots
             plt.axvline(backtest_mean + backtest_std, color='green', linestyle='dashed')
@@ -170,7 +170,7 @@ def return_hist(csv_file, backtest=True, buy_hold=False, both=False):
         print(f"Buy/Hold Std: {round(buy_hold_std, 2)}%")
 
     if both:
-        plt.title('Normal Distribution of Backtest and Buy/Hold Results')
+        plt.title(f'{ticker}: Normal Distribution of Backtest and Buy/Hold Results')
         plt.xlim(min(backtest_mini, buy_hold_mini), max(backtest_maxi, buy_hold_maxi))
 
     plt.xlabel('Return (%)')
