@@ -124,8 +124,6 @@ class Conditional_Probability():
         action = 'No Action'  # <-- Ensure action is always initialized
         conditional_prob_prev = None  # Also initialize this
         # This is the algorithm loop
-
-        
         while post_idx < (len(self.df) - len(data_cutoff)):
             if (post_idx - self.df.index.get_loc(post_data.index[0])) % step_input == 0: # every x steps, recalculate the conditional probability table using new data
                 current_pre_data = self.df.iloc[:post_idx]                      # this helps with runtime

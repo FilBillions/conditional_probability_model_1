@@ -60,14 +60,19 @@ def backtest():
         random_days = random.randint(0, (end_date_range - universe).days)
         input_start_date = pd.to_datetime(universe + timedelta(days=random_days))
         input_end_date = pd.to_datetime(input_start_date + timedelta(days=365) ) # Default end date is 1 year later
+        
         # Check if input_end_date is valid
         if input_end_date.date() < today:
+            # Testing Modules for a specific date
+            #input_start_date = "2000-07-29"
+            #input_end_date = "2001-07-29"
+
             model = Conditional_Probability(ticker=ticker, interval=interval, start=universe, optional_df=df)
-            model.run_algo(target_probability=target_probability, start_date=input_start_date, end_date=input_end_date, print_table=True)
+            model.run_algo(target_probability=target_probability, start_date=input_start_date, end_date=input_end_date, return_table=True)
             real_start_date = model.df.index[0]  # Get the first date in the DataFrame
             real_end_date = model.df.index[-1]  # Get the last date in the DataFrame
-            backtest_result = model.backtest(print_table=False, print_statement=False, model_return=True)
-            buy_hold_result = model.backtest(print_table=False, buy_hold=True)
+            backtest_result = model.backtest(return_table=False, print_statement=False, model_return=True)
+            buy_hold_result = model.backtest(return_table=False, buy_hold=True)
 
             #Sharpe Ratios
             backtest_sharpe = model.sharpe_ratio(return_model=True)
@@ -76,14 +81,18 @@ def backtest():
             delta = backtest_result - buy_hold_result
 
             # Export to CSV
-            def export_to_csv(backtest_result, buy_hold_result, filename="backtest_results.csv"): 
-                with open(filename, 'a', newline='') as csvfile:
-                    writer = csv.writer(csvfile)
-                    if csvfile.tell() == 0:  # Check if file is empty
-                        # Write header only if the file is empty
-                        writer.writerow(['Input Start Date', 'Input End Date', 'Start Date', 'End Date', 'Model Result', 'Buy/Hold Result', 'Delta', 'Model Sharpe', 'Buy/Hold Sharpe']) # header
-                    writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe]) # data
-
+            def export_to_csv(backtest_result, buy_hold_result, filename="backtest_results.csv"):
+                #Check for Overload Error
+                if np.isnan(backtest_sharpe):
+                    print(f"Error: Errors found in backtest do to overload. Backtest #{i + 1} scrapped.")
+                    return
+                else:
+                    with open(filename, 'a', newline='') as csvfile:
+                        writer = csv.writer(csvfile)
+                        if csvfile.tell() == 0:  # Check if file is empty
+                            # Write header only if the file is empty
+                            writer.writerow(['Input Start Date', 'Input End Date', 'Start Date', 'End Date', 'Model Result', 'Buy/Hold Result', 'Delta', 'Model Sharpe', 'Buy/Hold Sharpe']) # header
+                        writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe]) # data
             print("Done")
             export_to_csv(backtest_result, buy_hold_result)
         elif input_end_date.date() >= today:
