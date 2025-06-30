@@ -7,10 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 sb.set_theme()
 
-
-
 # make charts generic
-
 
 def comparison(object):
     labels = pd.to_datetime(object.df.index).strftime('%Y-%m-%d')
