@@ -114,7 +114,7 @@ class Backtest():
                     spy_result = spy_model.get_return()
                     spy_sharpe = spy_model.get_sharpe()
                     spy_delta = backtest_result - spy_result
-
+                    print(f"SPY Buy/Hold Result: {spy_result}")
                 delta = backtest_result - buy_hold_result
 
                 # Export to CSV
@@ -136,7 +136,6 @@ class Backtest():
                                 writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe, spy_result, spy_sharpe, round(spy_delta,2)]) # data
                             else:
                                 writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe]) # data
-                print(f"SPY Buy/Hold Result: {spy_result}")
                 print("Done")
                 export_to_csv(backtest_result, buy_hold_result)
             elif input_end_date.date() >= self.today:

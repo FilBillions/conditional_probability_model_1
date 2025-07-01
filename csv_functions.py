@@ -83,7 +83,7 @@ def return_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
         print(f"Buy/Hold Mean: {round(buy_hold_mean, 2)}%")
         print(f"Buy/Hold Std: {round(buy_hold_std, 2)}%")
 
-    if spy:
+    if spy and 'SPY Buy/Hold Result' in df.columns:
         plt.hist(df['SPY Buy/Hold Result'], bins=50, density=True, color='green', alpha=0.5, label='SPY Buy/Hold Result')
         plt.xlim(spy_buy_hold_mini, spy_buy_hold_maxi)
         plt.plot(spy_buy_hold_overlay, spy_buy_hold_p, 'g', label='SPY Buy/Hold PDF')
@@ -107,16 +107,16 @@ def return_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
         print("SPY Buy/Hold Results:")
         print(f"SPY Buy/Hold Mean: {round(spy_buy_hold_mean, 2)}%")
         print(f"SPY Buy/Hold Std: {round(spy_buy_hold_std, 2)}%")
-    if backtest is True and buy_hold is True and spy is True:
+    if backtest is True and buy_hold is True and spy is True and spy and 'SPY Buy/Hold Result' in df.columns:
         plt.title(f'Normal Distribution of Model and Buy/Hold Results')
         plt.xlim(min(backtest_mini, buy_hold_mini, spy_buy_hold_mini), max(backtest_maxi, buy_hold_maxi, spy_buy_hold_maxi))
     if backtest is True and buy_hold is True and spy is False:
         plt.title(f'Normal Distribution of Model and Buy/Hold Results')
         plt.xlim(min(backtest_mini, buy_hold_mini), max(backtest_maxi, buy_hold_maxi))
-    if backtest is True and spy is True and buy_hold is False:
+    if backtest is True and spy is True and buy_hold is False and 'SPY Buy/Hold Result' in df.columns:
         plt.title(f'Normal Distribution of Model and SPY Buy/Hold Results')
         plt.xlim(min(backtest_mini, spy_buy_hold_mini), max(backtest_maxi, spy_buy_hold_maxi))
-    if buy_hold is True and spy is True and backtest is False:
+    if buy_hold is True and spy is True and backtest is False and 'SPY Buy/Hold Result' in df.columns:
         plt.title(f'Normal Distribution of Asset Buy/Hold and SPY Buy/Hold Results')
         plt.xlim(min(buy_hold_mini, spy_buy_hold_mini), max(buy_hold_maxi, spy_buy_hold_maxi))
 
@@ -210,7 +210,7 @@ def sharpe_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
         plt.title('Normal Distribution of Model and Buy/Hold Sharpe')
         plt.xlim(min(backtest_mini, buy_hold_mini), max(backtest_maxi, buy_hold_maxi))
     
-    if spy:
+    if spy and 'SPY Buy/Hold Sharpe' in df.columns:
         plt.hist(df['SPY Sharpe'], bins=50, density=True, color='orange', alpha=0.5, label='SPY Sharpe')
         plt.xlim(spy_buy_hold_mini, spy_buy_hold_maxi)
         plt.plot(spy_buy_hold_overlay, spy_buy_hold_p, 'green', label='SPY Sharpe PDF')
@@ -234,16 +234,16 @@ def sharpe_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
         print(f"SPY Mean: {round(spy_buy_hold_mean, 4)}")
         print(f"SPY Std: {round(spy_buy_hold_std, 4)}")
 
-    if backtest is True and buy_hold is True and spy is True:
+    if backtest is True and buy_hold is True and spy is True and 'SPY Buy/Hold Sharpe' in df.columns:
         plt.title(f'Normal Distribution of Model and Buy/Hold Results')
         plt.xlim(min(backtest_mini, buy_hold_mini, spy_buy_hold_mini), max(backtest_maxi, buy_hold_maxi, spy_buy_hold_maxi))
     if backtest is True and buy_hold is True and spy is False:
         plt.title(f'Normal Distribution of Model and Buy/Hold Results')
         plt.xlim(min(backtest_mini, buy_hold_mini), max(backtest_maxi, buy_hold_maxi))
-    if backtest is True and spy is True and buy_hold is False:
+    if backtest is True and spy is True and buy_hold is False and 'SPY Buy/Hold Sharpe' in df.columns:
         plt.title(f'Normal Distribution of Model and SPY Buy/Hold Results')
         plt.xlim(min(backtest_mini, spy_buy_hold_mini), max(backtest_maxi, spy_buy_hold_maxi))
-    if buy_hold is True and spy is True and backtest is False:
+    if buy_hold is True and spy is True and backtest is False and 'SPY Buy/Hold Sharpe' in df.columns:
         plt.title(f'Normal Distribution of Asset Buy/Hold and SPY Buy/Hold Results')
         plt.xlim(min(buy_hold_mini, spy_buy_hold_mini), max(buy_hold_maxi, spy_buy_hold_maxi))
 
@@ -257,11 +257,11 @@ def bear_hist(input, backtest=True, buy_hold=False, spy=False):
     # Answers the question of how did the model do when either the buy_hold or SPY were negative.
     # Grab all rows where backtest or spy were negative, then run functions
     df = pd.read_csv(input)
-    if spy is True and buy_hold is True:
+    if spy is True and buy_hold is True and 'SPY Buy/Hold Result' in df.columns:
         negative_both = df[(df['SPY Buy/Hold Result'] < 0) & (df['Buy/Hold Result'] < 0)]
         return_hist(negative_both, buy_hold=True, spy=True, csv_off=True)
         sharpe_hist(negative_both, buy_hold=True, spy=True, csv_off=True)
-    if spy is True and buy_hold is False:
+    if spy is True and buy_hold is False and 'SPY Buy/Hold Result' in df.columns:
         print("-" * 50)
         print("How Model Performs while SPY is down")
         print("-" * 50)
@@ -275,16 +275,23 @@ def bear_hist(input, backtest=True, buy_hold=False, spy=False):
         negative_buy_hold = df[df['Buy/Hold Result'] < 0]
         return_hist(negative_buy_hold, buy_hold=True, csv_off=True)
         sharpe_hist(negative_buy_hold, buy_hold=True, csv_off=True)
+    if buy_hold is True and spy is True and 'SPY Buy/Hold Result' not in df.columns:
+        print("-" * 50)
+        print("How Model Performs while asset is down")
+        print("-" * 50)
+        negative_buy_hold = df[df['Buy/Hold Result'] < 0]
+        return_hist(negative_buy_hold, buy_hold=True, csv_off=True)
+        sharpe_hist(negative_buy_hold, buy_hold=True, csv_off=True)
 
 def bull_hist(input, backtest=True, buy_hold=False, spy=False):
     # Answers the question of how did the model do when either the buy_hold or SPY were positive.
     # Grab all rows where backtest or spy were negative, then run functions
     df = pd.read_csv(input)
-    if spy is True and buy_hold is True:
+    if spy is True and buy_hold is True and 'SPY Buy/Hold Result' in df.columns:
         positive_both = df[(df['SPY Buy/Hold Result'] > 0) & (df['Buy/Hold Result'] > 0)]
         return_hist(positive_both, buy_hold=True, spy=True, csv_off=True)
         sharpe_hist(positive_both, buy_hold=True, spy=True, csv_off=True)
-    if spy is True and buy_hold is False:
+    if spy is True and buy_hold is False and 'SPY Buy/Hold Result' in df.columns:
         print("-" * 50)
         print("How Model Performs while SPY is up")
         print("-" * 50)
@@ -298,16 +305,24 @@ def bull_hist(input, backtest=True, buy_hold=False, spy=False):
         positive_buy_hold = df[df['Buy/Hold Result'] > 0]
         return_hist(positive_buy_hold, buy_hold=True, csv_off=True)
         sharpe_hist(positive_buy_hold, buy_hold=True, csv_off=True)
+    if buy_hold is True and spy is True and 'SPY Buy/Hold Result' not in df.columns:
+        # check if were working on SPY
+        print("-" * 50)
+        print("How Model Performs while asset is up")
+        print("-" * 50)
+        positive_buy_hold = df[df['Buy/Hold Result'] > 0]
+        return_hist(positive_buy_hold, buy_hold=True, csv_off=True)
+        sharpe_hist(positive_buy_hold, buy_hold=True, csv_off=True)
 
 def neutral_hist(input, backtest=True, buy_hold=False, spy=False):
     # Answers the question of how did the model do when either the buy_hold or SPY were positive.
     # Grab all rows where backtest or spy were negative, then run functions
     df = pd.read_csv(input)
-    if spy is True and buy_hold is True:
+    if spy is True and buy_hold is True and 'SPY Buy/Hold Result' in df.columns:
         neutral_both = df[(df['SPY Buy/Hold Result'] > 0) & (df['Buy/Hold Result'] > 0)]
         return_hist(neutral_both, buy_hold=True, spy=True, csv_off=True)
         sharpe_hist(neutral_both, buy_hold=True, spy=True, csv_off=True)
-    if spy is True and buy_hold is False:
+    if spy is True and buy_hold is False and 'SPY Buy/Hold Result' in df.columns:
         print("-" * 50)
         print("How Model Performs while SPY is up")
         print("-" * 50)
@@ -315,6 +330,13 @@ def neutral_hist(input, backtest=True, buy_hold=False, spy=False):
         return_hist(neutral_spy, spy=True, csv_off=True)
         sharpe_hist(neutral_spy, spy=True, csv_off=True)
     if buy_hold is True and spy is False:
+        print("-" * 50)
+        print("How Model Performs while asset is up")
+        print("-" * 50)
+        neutral_buy_hold = df[df['Buy/Hold Result'] > 0]
+        return_hist(neutral_buy_hold, buy_hold=True, csv_off=True)
+        sharpe_hist(neutral_buy_hold, buy_hold=True, csv_off=True)
+    if buy_hold is True and spy is True and 'SPY Buy/Hold Result' not in df.columns:
         print("-" * 50)
         print("How Model Performs while asset is up")
         print("-" * 50)
