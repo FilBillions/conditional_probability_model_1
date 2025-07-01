@@ -136,6 +136,7 @@ class Backtest():
                                 writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe, spy_result, spy_sharpe, round(spy_delta,2)]) # data
                             else:
                                 writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe]) # data
+                print(f"SPY Buy/Hold Result: {spy_result}")
                 print("Done")
                 export_to_csv(backtest_result, buy_hold_result)
             elif input_end_date.date() >= self.today:
