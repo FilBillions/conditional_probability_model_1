@@ -98,5 +98,6 @@ def conditional_probability(df, print_statement=True):
                 if count_df.loc[prob[0], prob[1]] > 10:
                     worst_count += 1
                     print(f'P({prob[1]} | {prob[0]}) = {round(prob_df.loc[prob[0], prob[1]] * 100, 4)}% --- occurred {count_df.loc[prob[0], prob[1]]} times')
-
-    return prob_df
+    if df['Return'].count() < 100:
+        raise Exception("Not enough data: fewer than 100 samples. Conditional probability table will not be returned. Try a date that would allow for more samples.")
+    return prob_df  

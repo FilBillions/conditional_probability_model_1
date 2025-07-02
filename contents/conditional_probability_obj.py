@@ -102,6 +102,20 @@ class Conditional_Probability():
         # - - - Run the Algorithm - - -
         # - - - Initialize post data and pre data sets - - -
         # - - - We only use data from before the specified start date - - -
+        # Ensure start_date and end_date are timezone-aware and in UTC
+        if self.df.index.tz is not None:
+            if pd.Timestamp(start_date).tzinfo is None:
+                start_date = pd.Timestamp(start_date).tz_localize('UTC')
+            else:
+                start_date = pd.Timestamp(start_date).tz_convert('UTC')
+            if pd.Timestamp(end_date).tzinfo is None:
+                end_date = pd.Timestamp(end_date).tz_localize('UTC')
+            else:
+                end_date = pd.Timestamp(end_date).tz_convert('UTC')
+        else:
+            start_date = pd.Timestamp(start_date)
+            end_date = pd.Timestamp(end_date)
+
         if isinstance(start_date, int):
             post_data = self.df[self.df.index.year >= start_date]
             data_cutoff = []
@@ -128,7 +142,6 @@ class Conditional_Probability():
             if (post_idx - self.df.index.get_loc(post_data.index[0])) % step_input == 0: # every x steps, recalculate the conditional probability table using new data
                 current_pre_data = self.df.iloc[:post_idx]                      # this helps with runtime
                 algo_df = conditional_probability(current_pre_data,print_statement=False)
-            
             start_date = self.df.index[post_idx]
             last_return = self.df['Return'].iloc[post_idx - 1]
             row_label = get_row_label(last_return)
@@ -224,7 +237,6 @@ class Conditional_Probability():
 
         if return_table:
             print(f"Buys/Sells {df_actions['Action'].value_counts()}")
-            pd.set_option('display.max_rows', None)
             return round(self.df,4)
     
     def backtest(self, print_statement=True, return_table=False, model_return=False, buy_hold=False):
@@ -287,21 +299,25 @@ class Conditional_Probability():
             print(f"{self.ticker} Model Result: {round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)}%")
             print(f" from {self.df.index[0]} to {self.df.index[-1]}")
         if return_table:
-            return self.df.head(20)
+            return self.df
         if model_return:
             return round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)
         if buy_hold:
             return round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)
     
     def sharpe_ratio(self, return_model=True, return_buy_hold=False):
+        # factor answers the question: how many of this interval are in the total timespan
         if self.interval == "1d":
+            #There are 252 trading days in a year
             annualized_factor = 252
         elif self.interval == "1wk":
+            #52 weeks in a year
             annualized_factor = 52
         elif self.interval == "1mo":
+            #12 months in a year
             annualized_factor = 12
         else:
-            raise ValueError("Unsupported interval for Sharpe Ratio calculation. Use '1d', '1wk', or '1mo'.")
+            annualized_factor = 1
         model_descriptives = stats.describe(self.df['Model Value'].pct_change().dropna())
         model_mean = model_descriptives.mean
         model_std = model_descriptives.variance ** 0.5

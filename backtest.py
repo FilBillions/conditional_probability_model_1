@@ -20,7 +20,7 @@ class Backtest():
     def __init__(self):
         #Argument Checks
         if len(sys.argv) > 1:
-            # Checkiing if inputs are valid tickers and integers
+            # Check if first argument is an integer, it should not be
             number_check = None
             try:
                 number_check = int(sys.argv[1])
@@ -29,42 +29,80 @@ class Backtest():
             if isinstance(number_check, int):
                 print("-" * 50)
                 print(f"Argument: {sys.argv[1]} -> provided integer, not ticker")
-                print("Usage: python backtest.py <ticker symbol> <number_of_iterations>")
+                print("Usage: python backtest.py <ticker symbol> <number_of_iterations> <interval>")
                 print("-" * 50)
                 sys.exit(1)
-        if len(sys.argv) >= 4:
+        if len(sys.argv) >= 5:
             # checking amount of inputs
             print("-" * 50)
             print("Invalid argument. Too many inputs")
-            print("Usage: python backtest.py <ticker symbol> <number_of_iterations>")
+            print("Usage: python backtest.py <ticker symbol> <number_of_iterations> <interval>")
             print("-" * 50)
             sys.exit(1)
         if len(sys.argv) == 2:
             self.arg = str(sys.argv[1])
             self.arg2 = 1
-        elif len(sys.argv) > 2:
+            self.arg3 = '1d'
+        elif len(sys.argv) == 3:
             try:
                 self.arg = str(sys.argv[1])
                 self.arg2 = int(sys.argv[2])
+                self.arg3 = '1d'
             except ValueError:
                 print("-" * 50)
                 print("Invalid argument. Please provide a valid ticker and integer for the number of iterations. This should be a positive integer")
-                print("Usage: python backtest.py <ticker symbol> <number_of_iterations>")
+                print("Usage: python backtest.py <ticker symbol> <number_of_iterations> <interval>")
                 print("-" * 50)
                 sys.exit(1)
+        elif len(sys.argv) >3:
+        # Check if third argument is an integer, it should not be
+            number_check = None
+            try:
+                number_check = int(sys.argv[3])
+            except ValueError:
+                pass
+            if isinstance(number_check, int):
+                print("-" * 50)
+                print(f"Argument: {sys.argv[3]} -> provided integer, not interval")
+                print("Usage: python backtest.py <ticker symbol> <number_of_iterations> <interval>")
+                print("-" * 50)
+                sys.exit(1)
+            try:
+                self.arg = str(sys.argv[1])
+                self.arg2 = int(sys.argv[2])
+                self.arg3 = str(sys.argv[3])
+            except ValueError:
+                print("-" * 50)
+                print("Invalid argument. Please provide a valid ticker, integer, and interval for the number of iterations. This should be a positive integer")
+                print("Usage: python backtest.py <ticker symbol> <number_of_iterations> <interval>")
+                print("-" * 50)
         else:
             print("-" * 50)
             print("No argument provided. Please provide a valid ticker and integer for the number of iterations. This should be a positive integer")
-            print("Usage: python backtest.py <ticker symbol> <number_of_iterations>")
+            print("Usage: python backtest.py <ticker symbol> <number_of_iterations> <interval>")
             print("-" * 50)
             sys.exit(1)
 
 # Inputs
-        self.universe = datetime.strptime("2000-01-01", "%Y-%m-%d").date()
-        self.today = date.today()
+    #interval will become an argument
+    # universe will be based on the argument
+    # we will add a variable called tie_in that is a number based on what interval we're on. For example 1d tie_in = 365, 2m to 30m = 1m, 1h 90m = 6m
+        self.short_days_list =['2m', '5m', '15m', '30m']
+        self.medium_days_list = ['60m', '90m', '1h']
+        self.long_days_list = ['1d', '5d', '1wk', '1mo', '3mo']
+        self.interval = self.arg3
+        self.today = datetime.now()
         self.end_date_range = self.today - timedelta(days=1)  # today
+        if self.interval in self.long_days_list:
+            self.universe = datetime.strptime("2000-01-01", "%Y-%m-%d")
+            self.tie_in = 365
+        if self.interval in self.medium_days_list:
+            self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=729, hours=5, minutes=30)
+            self.tie_in = 180
+        if self.interval in self.short_days_list:
+            self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=59, hours=5, minutes=30)
+            self.tie_in = 30
         self.ticker = self.arg
-        self.interval = "1d"
         self.target_probability = 0.55
 # Declare df outside of the loop to avoid re-downloading data each iteration
         print(f"Downloading {self.ticker}...")
@@ -88,12 +126,20 @@ class Backtest():
 
             print(f"Backtest {i + 1} of {self.arg2}...")
             # Generate a random start date within the range
-            random_days = random.randint(0, (self.end_date_range - self.universe).days)
-            input_start_date = pd.to_datetime(self.universe + timedelta(days=random_days))
-            input_end_date = pd.to_datetime(input_start_date + timedelta(days=365) ) # Default end date is 1 year later
-            
+            if self.interval in self.long_days_list:
+                random_input = random.randint(0, (self.end_date_range - self.universe).days)
+                input_start_date = pd.to_datetime(self.universe + timedelta(days=random_input))
+            if self.interval in self.medium_days_list:
+                minutes = (self.end_date_range - self.universe).total_seconds() // 60
+                random_input = random.randint(0, int(minutes))
+                input_start_date = pd.to_datetime(self.universe + timedelta(minutes=random_input))
+            if self.interval in self.short_days_list:
+                minutes = (self.end_date_range - self.universe).total_seconds() // 60
+                random_input = random.randint(0, int(minutes))
+                input_start_date = pd.to_datetime(self.universe + timedelta(minutes=random_input))
+            input_end_date = pd.to_datetime(input_start_date + timedelta(days=self.tie_in))
             # Check if input_end_date is valid
-            if input_end_date.date() < self.today:
+            if input_end_date < self.today:
                 # Testing Modules for a specific date
                 #input_start_date = "2000-07-29"
                 #input_end_date = "2001-07-29"
@@ -118,7 +164,7 @@ class Backtest():
                 delta = backtest_result - buy_hold_result
 
                 # Export to CSV
-                def export_to_csv(backtest_result, buy_hold_result, filename=f"{self.ticker}_backtest_results.csv"):
+                def export_to_csv(backtest_result, buy_hold_result, filename=f"{self.ticker}_{self.interval}_backtest_results.csv"):
                     #Check for Overload Error
                     if np.isnan(backtest_sharpe):
                         print(f"Error: Errors found in backtest do to overload. Backtest #{i + 1} scrapped.")
@@ -138,7 +184,7 @@ class Backtest():
                                 writer.writerow([input_start_date, input_end_date, real_start_date, real_end_date, backtest_result, buy_hold_result, round(delta,2), backtest_sharpe, buy_hold_sharpe]) # data
                 print("Done")
                 export_to_csv(backtest_result, buy_hold_result)
-            elif input_end_date.date() >= self.today:
+            elif input_end_date >= self.today:
                 print(f"End Date is not valid, no entry recorded")
                 print(f"{input_end_date}")
         print("-" * 50)
