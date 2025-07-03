@@ -84,26 +84,27 @@ class Backtest():
             sys.exit(1)
 
 # Inputs
-    #interval will become an argument
-    # universe will be based on the argument
-    # we will add a variable called tie_in that is a number based on what interval we're on. For example 1d tie_in = 365, 2m to 30m = 1m, 1h 90m = 6m
         self.short_days_list =['2m', '5m', '15m', '30m']
         self.medium_days_list = ['60m', '90m', '1h']
         self.long_days_list = ['1d', '5d', '1wk', '1mo', '3mo']
         self.interval = self.arg3
         self.today = datetime.now()
-        self.end_date_range = self.today - timedelta(days=1)  # today
         if self.interval in self.long_days_list:
             self.universe = datetime.strptime("2000-01-01", "%Y-%m-%d")
             self.tie_in = 365
+            self.end_date_range = self.today - timedelta(days=self.tie_in)  
         if self.interval in self.medium_days_list:
             self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=729, hours=5, minutes=30)
             self.tie_in = 180
+            self.end_date_range = self.today - timedelta(days=self.tie_in)  
         if self.interval in self.short_days_list:
             self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=59, hours=5, minutes=30)
             self.tie_in = 30
+            self.end_date_range = self.today - timedelta(days=self.tie_in)  
         self.ticker = self.arg
         self.target_probability = 0.55
+        print(self.universe)
+        print(self.end_date_range)
 # Declare df outside of the loop to avoid re-downloading data each iteration
         print(f"Downloading {self.ticker}...")
         self.df = yf.download(self.ticker, start = self.universe, end = str(date.today() - timedelta(1)), interval = self.interval, multi_level_index=False)
@@ -121,11 +122,13 @@ class Backtest():
 
     def backtest(self):
         for i in range(self.arg2):
-            # Default date range
-            # use a random date from a range of 25 years ago to today 
-
             print(f"Backtest {i + 1} of {self.arg2}...")
             # Generate a random start date within the range
+            # To stop errors from generating due to bad dates, we need to subtract end_date_range by the duration of our algorithm
+            # For 1d, end_date range - 1y
+            # for 15m, end_date_range - 1m
+            # rather, it's end_date_range - tie_in
+            # this way dates will only generate if theres a year's worth of data to be calculated
             if self.interval in self.long_days_list:
                 random_input = random.randint(0, (self.end_date_range - self.universe).days)
                 input_start_date = pd.to_datetime(self.universe + timedelta(days=random_input))
