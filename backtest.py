@@ -84,7 +84,8 @@ class Backtest():
             sys.exit(1)
 
 # Inputs
-        self.short_days_list =['2m', '5m', '15m', '30m']
+        self.extra_short_days_list=['2m', '5m']
+        self.short_days_list =['15m', '30m']
         self.medium_days_list = ['60m', '90m', '1h']
         self.long_days_list = ['1d', '5d', '1wk', '1mo', '3mo']
         self.interval = self.arg3
@@ -93,18 +94,26 @@ class Backtest():
             self.universe = datetime.strptime("2000-01-01", "%Y-%m-%d")
             self.tie_in = 365
             self.end_date_range = self.today - timedelta(days=self.tie_in)  
+            self.step_input = 5
         if self.interval in self.medium_days_list:
             self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=729, hours=5, minutes=30)
             self.tie_in = 180
-            self.end_date_range = self.today - timedelta(days=self.tie_in)  
+            self.end_date_range = self.today - timedelta(days=self.tie_in)
+            self.step_input = 5
         if self.interval in self.short_days_list:
             self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=59, hours=5, minutes=30)
             self.tie_in = 30
-            self.end_date_range = self.today - timedelta(days=self.tie_in)  
+            self.end_date_range = self.today - timedelta(days=self.tie_in)
+            self.step_input = 5
+        if self.interval in self.extra_short_days_list:
+            self.universe = datetime.combine(self.today, datetime.min.time()) - timedelta(days=59, hours=5, minutes=30)
+            self.tie_in = 7
+            self.end_date_range = self.today - timedelta(days=self.tie_in)
+            self.step_input = 5
         self.ticker = self.arg
         self.target_probability = 0.55
-        print(self.universe)
-        print(self.end_date_range)
+        print(f'Simulation Start Date Range : {self.universe}')
+        print(f'Simulation End Date Range: {self.end_date_range}')
 # Declare df outside of the loop to avoid re-downloading data each iteration
         print(f"Downloading {self.ticker}...")
         self.df = yf.download(self.ticker, start = self.universe, end = str(date.today() - timedelta(1)), interval = self.interval, multi_level_index=False)
@@ -125,18 +134,10 @@ class Backtest():
             print(f"Backtest {i + 1} of {self.arg2}...")
             # Generate a random start date within the range
             # To stop errors from generating due to bad dates, we need to subtract end_date_range by the duration of our algorithm
-            # For 1d, end_date range - 1y
-            # for 15m, end_date_range - 1m
-            # rather, it's end_date_range - tie_in
-            # this way dates will only generate if theres a year's worth of data to be calculated
             if self.interval in self.long_days_list:
                 random_input = random.randint(0, (self.end_date_range - self.universe).days)
                 input_start_date = pd.to_datetime(self.universe + timedelta(days=random_input))
-            if self.interval in self.medium_days_list:
-                minutes = (self.end_date_range - self.universe).total_seconds() // 60
-                random_input = random.randint(0, int(minutes))
-                input_start_date = pd.to_datetime(self.universe + timedelta(minutes=random_input))
-            if self.interval in self.short_days_list:
+            if self.interval in self.medium_days_list or self.interval in self.short_days_list or self.interval in self.extra_short_days_list:
                 minutes = (self.end_date_range - self.universe).total_seconds() // 60
                 random_input = random.randint(0, int(minutes))
                 input_start_date = pd.to_datetime(self.universe + timedelta(minutes=random_input))
@@ -148,7 +149,7 @@ class Backtest():
                 #input_end_date = "2001-07-29"
 
                 model = Conditional_Probability(ticker=self.ticker, interval=self.interval, start=self.universe, optional_df=self.df)
-                model.run_algo(target_probability=self.target_probability, start_date=input_start_date, end_date=input_end_date, return_table=True)
+                model.run_algo(target_probability=self.target_probability, start_date=input_start_date, end_date=input_end_date, step_input=self.step_input, return_table=True)
                 real_start_date = model.df.index[0]  # Get the first date in the DataFrame
                 real_end_date = model.df.index[-1]  # Get the last date in the DataFrame
                 if self.ticker != 'SPY':
@@ -170,7 +171,7 @@ class Backtest():
                 def export_to_csv(backtest_result, buy_hold_result, filename=f"{self.ticker}_{self.interval}_backtest_results.csv"):
                     #Check for Overload Error
                     if np.isnan(backtest_sharpe):
-                        print(f"Error: Errors found in backtest do to overload. Backtest #{i + 1} scrapped.")
+                        print(f"Error: Errors found in backtest due to overload. Backtest #{i + 1} scrapped.")
                         return
                     else:
                         with open(filename, 'a', newline='') as csvfile:
