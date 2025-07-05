@@ -15,15 +15,16 @@ def return_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
 
     #variables
     backtest_mini, backtest_maxi = df['Model Result'].min(), df['Model Result'].max()
-    buy_hold_mini, buy_hold_maxi = df['Buy/Hold Result'].min(), df['Buy/Hold Result'].max()
     backtest_mean = df['Model Result'].mean()
-    buy_hold_mean = df['Buy/Hold Result'].mean()
     backtest_std = df['Model Result'].std()
-    buy_hold_std = df['Buy/Hold Result'].std()
     backtest_overlay = np.linspace(backtest_mini, backtest_maxi, 100)
-    buy_hold_overlay = np.linspace(buy_hold_mini, buy_hold_maxi, 100)
     backtest_p = norm.pdf(backtest_overlay, backtest_mean, backtest_std)
-    buy_hold_p = norm.pdf(buy_hold_overlay, buy_hold_mean, buy_hold_std)
+    if 'Buy/Hold Result' in df.columns:
+        buy_hold_mini, buy_hold_maxi = df['Buy/Hold Result'].min(), df['Buy/Hold Result'].max()
+        buy_hold_mean = df['Buy/Hold Result'].mean()
+        buy_hold_std = df['Buy/Hold Result'].std()
+        buy_hold_overlay = np.linspace(buy_hold_mini, buy_hold_maxi, 100)
+        buy_hold_p = norm.pdf(buy_hold_overlay, buy_hold_mean, buy_hold_std)
     if 'SPY Buy/Hold Result' in df.columns:
         spy_buy_hold_mini, spy_buy_hold_maxi = df['SPY Buy/Hold Result'].min(), df['SPY Buy/Hold Result'].max()
         spy_buy_hold_mean = df['SPY Buy/Hold Result'].mean()

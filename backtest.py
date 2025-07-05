@@ -147,9 +147,13 @@ class Backtest():
                 # Testing Modules for a specific date
                 #input_start_date = "2000-07-29"
                 #input_end_date = "2001-07-29"
-
-                model = Conditional_Probability(ticker=self.ticker, interval=self.interval, start=self.universe, optional_df=self.df)
-                model.run_algo(target_probability=self.target_probability, start_date=input_start_date, end_date=input_end_date, step_input=self.step_input, return_table=True)
+                try:
+                    model = Conditional_Probability(ticker=self.ticker, interval=self.interval, start=self.universe, optional_df=self.df)
+                    model.run_algo(target_probability=self.target_probability, start_date=input_start_date, end_date=input_end_date, step_input=self.step_input, return_table=False)
+                except Exception as e:
+                    print(f"Iteration {i+1}: {e}")
+                    print("Skipping this iteration due to insufficient data.")
+                    continue  # Skip to the next iteration
                 real_start_date = model.df.index[0]  # Get the first date in the DataFrame
                 real_end_date = model.df.index[-1]  # Get the last date in the DataFrame
                 if self.ticker != 'SPY':

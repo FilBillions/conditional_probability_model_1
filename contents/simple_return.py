@@ -22,10 +22,14 @@ class Simple_Return():
         self.df['Day Count'] = day_count
         self.df['Return'] = np.log(self.df['Close']).diff() * 100
         self.df['Cumulative Return %'] = (np.exp(self.df['Return'] / 100).cumprod() - 1) * 100
-
         self.df.dropna(inplace=True)
+        
     def get_return(self):
         return round(((self.df['Close'].iloc[-1] - self.df['Close'].iloc[0])/self.df['Close'].iloc[0]) * 100, 2)
+    
+    def return_df(self):
+        return self.df
+    
     def get_sharpe(self):
         if self.interval == "1d":
             annualized_factor = 252

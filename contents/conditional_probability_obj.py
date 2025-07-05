@@ -239,7 +239,7 @@ class Conditional_Probability():
             print(f"Buys/Sells {df_actions['Action'].value_counts()}")
             return round(self.df,4)
     
-    def backtest(self, print_statement=True, return_table=False, model_return=False, buy_hold=False):
+    def backtest(self, print_statement=True, return_table=False, model_return=False, buy_hold=False, return_model_df=False):
         initial_investment = 10000
         cash = initial_investment
         shares = 0
@@ -304,6 +304,8 @@ class Conditional_Probability():
             return round(((self.df['Model Value'].iloc[-1] - self.df['Model Value'].iloc[0])/self.df['Model Value'].iloc[0]) * 100, 2)
         if buy_hold:
             return round(((self.df['Buy/Hold Value'].iloc[-1] - self.df['Buy/Hold Value'].iloc[0])/self.df['Buy/Hold Value'].iloc[0]) * 100, 2)
+        if return_model_df:
+            return self.df['Model Value']
     
     def sharpe_ratio(self, return_model=True, return_buy_hold=False):
         # factor answers the question: how many of this interval are in the total timespan
