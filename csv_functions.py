@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+from scipy import stats
+
+np.set_printoptions(legacy='1.25')
 
 def return_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
     fig1 = plt.figure(figsize=(12, 6))
@@ -34,6 +37,11 @@ def return_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
     print("-" * 50)
     print(f"n = {len(df)}")
     print("-" * 50)
+    print(f'90% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.90, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print(f'95% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.95, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print(f'98% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.98, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print(f'99% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.98, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print("-" * 50)
 
     if backtest:
         plt.hist(df['Model Result'], bins=50, density=True, color='blue', alpha=0.5, label='Model Result')
@@ -54,6 +62,9 @@ def return_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
             plt.text(backtest_mean + 2 * backtest_std, plt.ylim()[1] * .7, '+2std', color='purple', ha='center')
             plt.text(backtest_mean - 2 * backtest_std, plt.ylim()[1] * .7, '-2std', color='purple', ha='center')
             plt.text(backtest_mean - backtest_std, plt.ylim()[1] * .8, '-1std', color='green', ha='center')
+
+            #Confidence Intervals
+
 
         print("Model Results:")
         print(f"Model Mean: {round(backtest_mean, 2)}%")
@@ -156,6 +167,11 @@ def sharpe_hist(input, backtest=True, buy_hold=False, spy=False, csv_off=False):
 
     print("-" * 50)
     print(f"n = {len(df)}")
+    print("-" * 50)
+    print(f'90% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.90, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print(f'95% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.95, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print(f'98% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.98, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
+    print(f'99% Confidence Interval: {tuple(round(x, 4) for x in stats.norm.interval(.98, loc=backtest_mean, scale=(backtest_std/(len(df) ** .5))))}')
     print("-" * 50)
 
     if backtest:
