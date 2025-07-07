@@ -116,7 +116,7 @@ class Backtest():
         print(f'Simulation End Date Range: {self.end_date_range}')
 # Declare df outside of the loop to avoid re-downloading data each iteration
         print(f"Downloading {self.ticker}...")
-        self.df = yf.download(self.ticker, start = self.universe, end = str(date.today() - timedelta(1)), interval = self.interval, multi_level_index=False)
+        self.df = yf.download(self.ticker, start = self.universe, end = str(date.today() - timedelta(1)), interval = self.interval, multi_level_index=False, ignore_tz=True)
         #Check if input ticker is a valid ticker
         if self.df.empty:
             print("-" * 50)
@@ -127,7 +127,7 @@ class Backtest():
             sys.exit(1)
         if self.ticker != 'SPY':
             print(f"Downloading SPY...")
-            self.spydf = yf.download('SPY', start = self.universe, end = str(date.today() - timedelta(1)), interval = self.interval, multi_level_index=False)
+            self.spydf = yf.download('SPY', start = self.universe, end = str(date.today() - timedelta(1)), interval = self.interval, multi_level_index=False, ignore_tz=True)
 
     def backtest(self):
         for i in range(self.arg2):
